@@ -18,7 +18,7 @@ struct AutocorrectSuggestion {
 
     bool isDidYouMean;
 
-    AutocorrectSuggestion(std::string title, std::vector<Edit> edits, bool isDidYouMean = false)
+    AutocorrectSuggestion(std::string_view title, std::vector<Edit> edits, bool isDidYouMean = false)
         : title(title), edits(edits), isDidYouMean(isDidYouMean) {}
 
     // Apply a single `AutocorrectSuggestion` that contains either zero or one edits to a string, yielding the
