@@ -279,6 +279,14 @@ public:
     explicit PackageInfoImpl(const PackageInfoImpl &) = default;
     PackageInfoImpl &operator=(const PackageInfoImpl &) = delete;
 
+    int orderByAlphabetical(const PackageInfo &a, const PackageInfo &b) const {
+        auto aFullName = a.fullName();
+        auto bFullName = b.fullName();
+        if (aFullName == bFullName) {
+            return 0;
+        }
+        return core::packages::PackageInfo::lexCmp(aFullName, bFullName) ? -1 : 1;
+    }
     // What order should these packages be in the import list?
     // Returns -1 if a should come before b, 0 if they are equivalent, and 1 if a should come after b.
     //
@@ -298,11 +306,11 @@ public:
     // - layering violations
     // - imports to 'false', 'layered', or 'layered_dag' packages
     // - imports to 'dag' packages
+    // Within each group by strictness, packages are sorted by alphabetical order.
     // TODO(neil): explain the rationale behind this ordering (ie. why is not the simple "false < layered < layered_dag
     // < dag" ordering)
-    // TODO(neil): implement alphabetical sort.
-    int orderByStrictness(const core::packages::PackageDB &packageDB, const PackageInfo &a,
-                          const PackageInfo &b) const {
+    int orderByStrictnessAndAlphabetical(const core::packages::PackageDB &packageDB, const PackageInfo &a,
+                                         const PackageInfo &b) const {
         if (!strictDependenciesLevel().has_value() || !a.strictDependenciesLevel().has_value() ||
             !b.strictDependenciesLevel().has_value() || !a.layer().has_value() || !b.layer().has_value()) {
             return 0;
@@ -310,7 +318,7 @@ public:
         // Layering violations always come first
         if (causesLayeringViolation(packageDB, a)) {
             if (causesLayeringViolation(packageDB, b)) {
-                return 0;
+                return orderByAlphabetical(a, b);
             } else {
                 return -1;
             }
@@ -323,11 +331,15 @@ public:
                 // Sort order: Layering violations, false, layered or stricter
                 switch (aStrictDependenciesLevel) {
                     case core::packages::StrictDependenciesLevel::False:
-                        return bStrictDependenciesLevel == core::packages::StrictDependenciesLevel::False ? 0 : -1;
+                        return bStrictDependenciesLevel == core::packages::StrictDependenciesLevel::False
+                                   ? orderByAlphabetical(a, b)
+                                   : -1;
                     case core::packages::StrictDependenciesLevel::Layered:
                     case core::packages::StrictDependenciesLevel::LayeredDag:
                     case core::packages::StrictDependenciesLevel::Dag:
-                        return bStrictDependenciesLevel == core::packages::StrictDependenciesLevel::False ? 1 : 0;
+                        return bStrictDependenciesLevel == core::packages::StrictDependenciesLevel::False
+                                   ? 1
+                                   : orderByAlphabetical(a, b);
                 }
             }
             case core::packages::StrictDependenciesLevel::Layered:
@@ -335,7 +347,9 @@ public:
                 // Sort order: Layering violations, false, layered or layered_dag, dag
                 switch (aStrictDependenciesLevel) {
                     case core::packages::StrictDependenciesLevel::False:
-                        return bStrictDependenciesLevel == core::packages::StrictDependenciesLevel::False ? 0 : -1;
+                        return bStrictDependenciesLevel == core::packages::StrictDependenciesLevel::False
+                                   ? orderByAlphabetical(a, b)
+                                   : -1;
                     case core::packages::StrictDependenciesLevel::Layered:
                     case core::packages::StrictDependenciesLevel::LayeredDag:
                         switch (bStrictDependenciesLevel) {
@@ -343,12 +357,14 @@ public:
                                 return 1;
                             case core::packages::StrictDependenciesLevel::Layered:
                             case core::packages::StrictDependenciesLevel::LayeredDag:
-                                return 0;
+                                return orderByAlphabetical(a, b);
                             case core::packages::StrictDependenciesLevel::Dag:
                                 return -1;
                         }
                     case core::packages::StrictDependenciesLevel::Dag:
-                        return bStrictDependenciesLevel == core::packages::StrictDependenciesLevel::Dag ? 0 : 1;
+                        return bStrictDependenciesLevel == core::packages::StrictDependenciesLevel::Dag
+                                   ? orderByAlphabetical(a, b)
+                                   : 1;
                 }
             }
             case core::packages::StrictDependenciesLevel::Dag: {
@@ -357,9 +373,13 @@ public:
                     case core::packages::StrictDependenciesLevel::False:
                     case core::packages::StrictDependenciesLevel::Layered:
                     case core::packages::StrictDependenciesLevel::LayeredDag:
-                        return bStrictDependenciesLevel == core::packages::StrictDependenciesLevel::Dag ? -1 : 0;
+                        return bStrictDependenciesLevel == core::packages::StrictDependenciesLevel::Dag
+                                   ? -1
+                                   : orderByAlphabetical(a, b);
                     case core::packages::StrictDependenciesLevel::Dag:
-                        return bStrictDependenciesLevel == core::packages::StrictDependenciesLevel::Dag ? 0 : 1;
+                        return bStrictDependenciesLevel == core::packages::StrictDependenciesLevel::Dag
+                                   ? orderByAlphabetical(a, b)
+                                   : 1;
                 }
             }
         }
@@ -392,11 +412,18 @@ public:
                     continue;
                 }
 
+                // Test imports should always come at the end of the import list
                 if (isTestImport) {
-                    // Test imports should always come at the end of the import list
-                    importToInsertAfter = &import.name;
+                    if (import.type == core::packages::ImportType::Test) {
+                        auto compareResult = orderByAlphabetical(info, importInfo);
+                        if (compareResult == 1 || compareResult == 0) {
+                            importToInsertAfter = &import.name;
+                        }
+                    } else {
+                        importToInsertAfter = &import.name;
+                    }
                 } else {
-                    auto compareResult = orderByStrictness(gs.packageDB(), info, importInfo);
+                    auto compareResult = orderByStrictnessAndAlphabetical(gs.packageDB(), info, importInfo);
                     if (compareResult == 1 || compareResult == 0) {
                         importToInsertAfter = &import.name;
                     }
