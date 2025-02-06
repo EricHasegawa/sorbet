@@ -443,11 +443,31 @@ public:
                 auto &pkg = ctx.state.packageDB().getPackageInfo(otherPackage);
                 bool isTestImport = otherFile.data(ctx).isPackagedTest() || ctx.file.data(ctx).isPackagedTest();
                 auto strictDepsLevel = this->package.strictDependenciesLevel();
+                auto importStrictDepsLevel = pkg.strictDependenciesLevel();
                 bool layeringViolation =
                     !isTestImport && db.enforceLayering() && strictDepsLevel.has_value() &&
                     strictDepsLevel.value().first != core::packages::StrictDependenciesLevel::False &&
                     this->package.causesLayeringViolation(db, pkg);
-                if (layeringViolation) {
+                bool strictDependenciesLevelTooLow =
+                    !isTestImport && db.enforceLayering() && importStrictDepsLevel.has_value() &&
+                    importStrictDepsLevel.value().first < this->package.minimumStrictDependenciesLevel();
+                if (layeringViolation && strictDependenciesLevelTooLow) {
+                    e.setHeader("`{}` resolves but its package cannot be imported because "
+                                "importing it would cause a layering violation and "
+                                "its `{}` level is too low",
+                                lit.symbol.show(ctx), "strict_dependencies");
+                    e.addErrorLine(pkg.declLoc(), "Exported from package here");
+                    e.addErrorLine(core::Loc(pkg.fullLoc().file(), pkg.strictDependenciesLevel().value().second),
+                                   "`{}`'s `{}` level declared here", pkg.show(ctx), "strict_dependencies");
+
+                } else if (strictDependenciesLevelTooLow) {
+                    e.setHeader("`{}` resolves but its package cannot be imported because "
+                                "its `{}` level is too low",
+                                lit.symbol.show(ctx), "strict_dependencies");
+                    e.addErrorLine(pkg.declLoc(), "Exported from package here");
+                    e.addErrorLine(core::Loc(pkg.fullLoc().file(), pkg.strictDependenciesLevel().value().second),
+                                   "`{}`'s `{}` level declared here", pkg.show(ctx), "strict_dependencies");
+                } else if (layeringViolation) {
                     e.setHeader("`{}` resolves but its package cannot be imported because "
                                 "importing it would cause a layering violation",
                                 lit.symbol.show(ctx));
