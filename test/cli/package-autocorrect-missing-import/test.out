@@ -51,6 +51,12 @@ foo_class.rb:9: `Foo::Bar::AppPackage::OtherClass` resolves but its package cann
     app_package/__package.rb:3: Exported from package here
      3 |class Foo::Bar::AppPackage < PackageSpec
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    __package.rb:6: `Foo::MyPackage`'s `layer` declared here
+     6 |  layer 'lib'
+                ^^^^^
+    app_package/__package.rb:4: `Foo::Bar::AppPackage`'s `layer` declared here
+     4 |  layer 'app'
+                ^^^^^
 
 foo_class.rb:10: `Foo::Bar::AppPackage::OtherClass` resolves but its package cannot be imported because importing it would cause a layering violation https://srb.help/3718
     10 |      Bar::AppPackage::OtherClass # resolves via `module Foo`
@@ -58,6 +64,12 @@ foo_class.rb:10: `Foo::Bar::AppPackage::OtherClass` resolves but its package can
     app_package/__package.rb:3: Exported from package here
      3 |class Foo::Bar::AppPackage < PackageSpec
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    __package.rb:6: `Foo::MyPackage`'s `layer` declared here
+     6 |  layer 'lib'
+                ^^^^^
+    app_package/__package.rb:4: `Foo::Bar::AppPackage`'s `layer` declared here
+     4 |  layer 'app'
+                ^^^^^
 
 foo_class.rb:11: `Foo::Bar::FalsePackage::OtherClass` resolves but its package cannot be imported because its `strict_dependencies` level is too low https://srb.help/3718
     11 |      Foo::Bar::FalsePackage::OtherClass # resolves via root
@@ -85,6 +97,12 @@ foo_class.rb:13: `Foo::Bar::FalseAndAppPackage::OtherClass` resolves but its pac
     false_and_app_package/__package.rb:3: Exported from package here
      3 |class Foo::Bar::FalseAndAppPackage < PackageSpec
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    __package.rb:6: `Foo::MyPackage`'s `layer` declared here
+     6 |  layer 'lib'
+                ^^^^^
+    false_and_app_package/__package.rb:4: `Foo::Bar::FalseAndAppPackage`'s `layer` declared here
+     4 |  layer 'app'
+                ^^^^^
     false_and_app_package/__package.rb:5: `Foo::Bar::FalseAndAppPackage`'s `strict_dependencies` level declared here
      5 |  strict_dependencies 'false'
                               ^^^^^^^
@@ -95,6 +113,12 @@ foo_class.rb:14: `Foo::Bar::FalseAndAppPackage::OtherClass` resolves but its pac
     false_and_app_package/__package.rb:3: Exported from package here
      3 |class Foo::Bar::FalseAndAppPackage < PackageSpec
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    __package.rb:6: `Foo::MyPackage`'s `layer` declared here
+     6 |  layer 'lib'
+                ^^^^^
+    false_and_app_package/__package.rb:4: `Foo::Bar::FalseAndAppPackage`'s `layer` declared here
+     4 |  layer 'app'
+                ^^^^^
     false_and_app_package/__package.rb:5: `Foo::Bar::FalseAndAppPackage`'s `strict_dependencies` level declared here
      5 |  strict_dependencies 'false'
                               ^^^^^^^
@@ -120,6 +144,12 @@ foo_class.rb:25: `Foo::Bar::AppPackage::OtherClass` resolves but its package can
     app_package/__package.rb:3: Exported from package here
      3 |class Foo::Bar::AppPackage < PackageSpec
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    __package.rb:6: `Foo::MyPackage`'s `layer` declared here
+     6 |  layer 'lib'
+                ^^^^^
+    app_package/__package.rb:4: `Foo::Bar::AppPackage`'s `layer` declared here
+     4 |  layer 'app'
+                ^^^^^
 
 foo_class.rb:27: `Test::Foo::Bar::AppPackage::TestUtil` is defined in a test namespace and cannot be referenced in a non-test file https://srb.help/3720
     27 |  Test::Foo::Bar::AppPackage::TestUtil
@@ -145,6 +175,12 @@ foo_class.rb:33: `Foo::Bar::FalseAndAppPackage::OtherClass` resolves but its pac
     false_and_app_package/__package.rb:3: Exported from package here
      3 |class Foo::Bar::FalseAndAppPackage < PackageSpec
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    __package.rb:6: `Foo::MyPackage`'s `layer` declared here
+     6 |  layer 'lib'
+                ^^^^^
+    false_and_app_package/__package.rb:4: `Foo::Bar::FalseAndAppPackage`'s `layer` declared here
+     4 |  layer 'app'
+                ^^^^^
     false_and_app_package/__package.rb:5: `Foo::Bar::FalseAndAppPackage`'s `strict_dependencies` level declared here
      5 |  strict_dependencies 'false'
                               ^^^^^^^

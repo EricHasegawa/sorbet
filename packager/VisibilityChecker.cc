@@ -457,6 +457,12 @@ public:
                                 "its `{}` level is too low",
                                 lit.symbol.show(ctx), "strict_dependencies");
                     e.addErrorLine(pkg.declLoc(), "Exported from package here");
+                    if (this->package.layer().has_value() && pkg.layer().has_value()) {
+                        e.addErrorLine(core::Loc(this->package.fullLoc().file(), this->package.layer().value().second),
+                                       "`{}`'s `{}` declared here", this->package.show(ctx), "layer");
+                        e.addErrorLine(core::Loc(pkg.fullLoc().file(), pkg.layer().value().second),
+                                       "`{}`'s `{}` declared here", pkg.show(ctx), "layer");
+                    }
                     e.addErrorLine(core::Loc(pkg.fullLoc().file(), pkg.strictDependenciesLevel().value().second),
                                    "`{}`'s `{}` level declared here", pkg.show(ctx), "strict_dependencies");
 
@@ -472,6 +478,12 @@ public:
                                 "importing it would cause a layering violation",
                                 lit.symbol.show(ctx));
                     e.addErrorLine(pkg.declLoc(), "Exported from package here");
+                    if (this->package.layer().has_value() && pkg.layer().has_value()) {
+                        e.addErrorLine(core::Loc(this->package.fullLoc().file(), this->package.layer().value().second),
+                                       "`{}`'s `{}` declared here", this->package.show(ctx), "layer");
+                        e.addErrorLine(core::Loc(pkg.fullLoc().file(), pkg.layer().value().second),
+                                       "`{}`'s `{}` declared here", pkg.show(ctx), "layer");
+                    }
                 } else {
                     e.setHeader("`{}` resolves but its package is not imported", lit.symbol.show(ctx));
                     e.addErrorLine(pkg.declLoc(), "Exported from package here");
