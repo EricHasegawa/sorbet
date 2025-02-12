@@ -32,6 +32,55 @@
 
 namespace sorbet::realmain::lsp {
 using namespace std;
+
+TrackedFiles::TrackedFiles(std::vector<core::FileRef> files) : files{std::move(files)} {
+    fast_sort(this->files);
+
+    // Check the assumption that the TrackedFiles set is only initialized with unique file refs.
+    auto it = std::unique(this->files.begin(), this->files.end());
+    ENFORCE(it == this->files.end());
+}
+
+void TrackedFiles::track(absl::Span<const core::FileRef> toTrack) {
+    if (toTrack.empty()) {
+        return;
+    }
+
+    // Reserve to avoid invalidating iterators later.
+    this->files.reserve(this->files.size() + toTrack.size());
+    auto insertStart = this->files.end();
+
+    this->files.insert(insertStart, toTrack.begin(), toTrack.end());
+
+    fast_sort_range(insertStart, this->files.end());
+    auto end = std::unique(insertStart, this->files.end());
+
+    if (insertStart != this->files.begin()) {
+        auto previousLast = std::prev(insertStart);
+
+        // As the new entries are sorted, we can use the value of the previous end of the file table to know if it's
+        // necessary to further deduplicate any of the new values by comparing against the previous end.
+        if (*previousLast >= *insertStart) {
+            auto queryStart = this->files.begin();
+
+            // Remove any duplicates from the new range, leveraging the fact that `this->files` is already sorted and
+            // unique.
+            end = std::remove_if(insertStart, end, [&queryStart, insertStart](auto fref) {
+                queryStart = std::lower_bound(queryStart, insertStart, fref);
+                return queryStart != insertStart && *queryStart == fref;
+            });
+
+            // If the previous end of the file table is still greater after deduplication, we have added files that were
+            // previously untracked, and need to sort the whole vector.
+            if (*previousLast > *insertStart) {
+                fast_sort_range(this->files.begin(), end);
+            }
+        }
+    }
+
+    this->files.erase(end, this->files.end());
+}
+
 namespace {
 
 void sendTypecheckInfo(const LSPConfiguration &config, const core::GlobalState &gs, SorbetTypecheckRunStatus status,

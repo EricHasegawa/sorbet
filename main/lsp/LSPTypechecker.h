@@ -33,6 +33,30 @@ struct LSPQueryResult {
 class UndoState;
 
 /**
+ * A wrapper over a vector of `core::FileRef` that acts as a set. Used to manage the set of files known to belong to the
+ * workspace.
+ */
+class TrackedFiles final {
+    std::vector<core::FileRef> files;
+
+public:
+    TrackedFiles() = default;
+    explicit TrackedFiles(std::vector<core::FileRef> files);
+
+    /**
+     * Adds file refs to the tracked set.
+     */
+    void track(absl::Span<const core::FileRef> files);
+
+    /**
+     * View the tracked files as a span, which is suitable to be given to `pipeline::index`.
+     */
+    absl::Span<const core::FileRef> span() const {
+        return absl::MakeSpan(this->files);
+    }
+};
+
+/**
  * Encapsulates typechecker operations and enforces that they happen on a single thread.
  */
 class LSPTypechecker final {
