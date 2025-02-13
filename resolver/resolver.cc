@@ -349,7 +349,7 @@ private:
 
             return result;
         }
-        if (auto id = ast::cast_tree<ast::ConstantLit>(c.scope)) {
+        if (auto id = c.scopeAs<ast::ConstantLit>()) {
             auto sym = id->symbol;
             if (!sym.exists()) {
                 // Still waiting for scope to be resolved. Don't mark resolutionFailed yet, just
@@ -651,7 +651,7 @@ private:
                 }
 
                 suffix.emplace_back(cursor);
-                cursor = ast::cast_tree<ast::ConstantLit>(original->scope);
+                cursor = original->scopeAs<ast::ConstantLit>();
             }
             absl::c_reverse(suffix);
 
@@ -732,7 +732,7 @@ private:
         bool alreadyReported = false;
         job.out->resolutionScopes = make_unique<ast::ConstantLit::ResolutionScopes>();
         auto &original = *job.out->original;
-        if (auto id = ast::cast_tree<ast::ConstantLit>(original.scope)) {
+        if (auto id = original.scopeAs<ast::ConstantLit>()) {
             auto originalScope = id->symbol.dealias(ctx);
             if (originalScope == core::Symbols::StubModule()) {
                 // If we were trying to resolve some literal like C::D but `C` itself was already stubbed,
@@ -1687,7 +1687,7 @@ public:
     static int constantDepth(ast::ConstantLit *exp) {
         int depth = 0;
         ast::ConstantLit *scope = exp;
-        while (scope->original && (scope = ast::cast_tree<ast::ConstantLit>(scope->original->scope))) {
+        while (scope->original && (scope = scope->original->scopeAs<ast::ConstantLit>())) {
             depth += 1;
         }
         return depth;
