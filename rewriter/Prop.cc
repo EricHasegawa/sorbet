@@ -17,7 +17,7 @@ namespace {
 // users, but we don't know that information in the Rewriter passes.
 bool isT(const ast::ExpressionPtr &expr) {
     auto t = ast::cast_tree<ast::UnresolvedConstantLit>(expr);
-    return t != nullptr && t->cnst == core::Names::Constants::T() && ast::MK::isRootScope(t->scope);
+    return t != nullptr && t->cnst == core::Names::Constants::T() && ast::MK::isRootScoped(*t);
 }
 
 bool isTNilable(const ast::ExpressionPtr &expr) {

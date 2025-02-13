@@ -445,11 +445,11 @@ public:
         return ret;
     }
 
-    static bool isRootScope(const ast::ExpressionPtr &scope) {
-        if (ast::isa_tree<ast::EmptyTree>(scope)) {
+    static bool isRootScoped(const ast::UnresolvedConstantLit &lit) {
+        if (ast::isa_tree<ast::EmptyTree>(lit.scope)) {
             return true;
         }
-        auto root = ast::cast_tree<ast::ConstantLit>(scope);
+        auto root = ast::cast_tree<ast::ConstantLit>(lit.scope);
         return root != nullptr && root->symbol == core::Symbols::root();
     }
 

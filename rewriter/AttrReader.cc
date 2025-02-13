@@ -20,7 +20,7 @@ bool isT(const ast::ExpressionPtr &expr) {
     if (t == nullptr || t->cnst != core::Names::Constants::T()) {
         return false;
     }
-    return ast::MK::isRootScope(t->scope);
+    return ast::MK::isRootScoped(*t);
 }
 
 bool isTNilableOrUntyped(const ast::ExpressionPtr &expr) {
