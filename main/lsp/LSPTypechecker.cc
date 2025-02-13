@@ -121,16 +121,16 @@ void LSPTypechecker::initialize(TaskQueue &queue, std::unique_ptr<core::GlobalSt
 
     LSPFileUpdates updates;
 
+    // Temporarily replace error queue, as it asserts that the same thread that created it uses it and we're
+    // going to use it on typechecker thread for this one operation.
+    auto savedErrorQueue = std::move(initialGS->errorQueue);
+    initialGS->errorQueue = make_shared<core::ErrorQueue>(savedErrorQueue->logger, savedErrorQueue->tracer,
+                                                          make_shared<core::NullFlusher>());
+
     // Initialize the global state for the indexer
     {
         initialGS->trackUntyped = currentConfig.getClientConfig().enableHighlightUntyped;
-        // Temporarily replace error queue, as it asserts that the same thread that created it uses it and we're
-        // going to use it on typechecker thread for this one operation.
-        auto savedErrorQueue = initialGS->errorQueue;
-        initialGS->errorQueue = make_shared<core::ErrorQueue>(savedErrorQueue->logger, savedErrorQueue->tracer,
-                                                              make_shared<core::NullFlusher>());
 
-        vector<ast::ParsedFile> indexed;
         Timer timeit(config->logger, "initial_index");
         ShowOperation op(*config, ShowOperation::Kind::Indexing);
         vector<core::FileRef> inputFiles;
@@ -138,7 +138,7 @@ void LSPTypechecker::initialize(TaskQueue &queue, std::unique_ptr<core::GlobalSt
         {
             Timer timeit(config->logger, "reIndexFromFileSystem");
             inputFiles = pipeline::reserveFiles(initialGS, config->opts.inputFileNames);
-            indexed.resize(initialGS->filesUsed());
+            this->indexed.resize(initialGS->filesUsed());
 
             auto asts = hashing::Hashing::indexAndComputeFileHashes(*initialGS, config->opts, *config->logger,
                                                                     absl::Span<core::FileRef>(inputFiles), workers,
@@ -147,8 +147,8 @@ void LSPTypechecker::initialize(TaskQueue &queue, std::unique_ptr<core::GlobalSt
             // vector index != FileRef ID. Fix that by slotting them into `indexed`.
             for (auto &ast : asts) {
                 int id = ast.file.id();
-                ENFORCE_NO_TIMER(id < indexed.size());
-                indexed[id] = move(ast);
+                ENFORCE_NO_TIMER(id < this->indexed.size());
+                this->indexed[id] = move(ast);
             }
         }
 
@@ -159,27 +159,28 @@ void LSPTypechecker::initialize(TaskQueue &queue, std::unique_ptr<core::GlobalSt
 
         updates.epoch = 0;
         updates.typecheckingPath = TypecheckingPath::Slow;
-        updates.updatedFileIndexes = move(indexed);
-        updates.updatedGS = initialGS->deepCopy();
-
-        // Restore error queue, as initialGS will be used on the LSPLoop thread from now on.
-        initialGS->errorQueue = move(savedErrorQueue);
+        updates.updatedGS = std::move(initialGS);
     }
 
-    // We should always initialize with epoch 0.
-    this->initialized = true;
-    this->indexed = move(updates.updatedFileIndexes);
     // Initialization typecheck is not cancelable.
-    // TODO(jvilk): Make it preemptible.
-    auto committed = false;
+    // TODO(jvilk): Make it preemptible. Enabling preemption will require that we give runSlowPath the ability to
+    // unblock the indexer right before it starts typechecking.
     {
         const bool isIncremental = false;
         ErrorEpoch epoch(*errorReporter, updates.epoch, isIncremental, {});
         auto errorFlusher = make_shared<ErrorFlusherLSP>(updates.epoch, errorReporter);
-        committed = runSlowPath(move(updates), workers, errorFlusher, SlowPathMode::Init);
-        epoch.committed = committed;
+        auto result = runSlowPath(move(updates), workers, errorFlusher, SlowPathMode::Init);
+        ENFORCE(result.committed);
+        initialGS = std::move(result.indexedGS);
+        ENFORCE(initialGS != nullptr);
     }
-    ENFORCE(committed);
+
+    // Restore error queue, as initialGS will be used on the LSPLoop thread from now on.
+    ENFORCE(initialGS->errorQueue == nullptr);
+    initialGS->errorQueue = std::move(savedErrorQueue);
+
+    // We should always initialize with epoch 0.
+    this->initialized = true;
 
     // Unblock the indexer now that its state is fully initialized.
     {
@@ -240,7 +241,9 @@ bool LSPTypechecker::typecheck(LSPFileUpdates updates, WorkerPool &workers,
             commitFileUpdates(updates, /* cancelable */ false);
             prodCategoryCounterInc("lsp.updates", "fastpath");
         } else {
-            committed = runSlowPath(move(updates), workers, errorFlusher, SlowPathMode::Cancelable);
+            auto result = runSlowPath(move(updates), workers, errorFlusher, SlowPathMode::Cancelable);
+            committed = result.committed;
+            ENFORCE(result.indexedGS == nullptr);
         }
         epoch.committed = committed;
     }
@@ -455,10 +458,13 @@ bool LSPTypechecker::copyIndexed(WorkerPool &workers, const UnorderedSet<int> &i
     return epochManager.wasTypecheckingCanceled();
 }
 
-bool LSPTypechecker::runSlowPath(LSPFileUpdates updates, WorkerPool &workers,
-                                 shared_ptr<core::ErrorFlusher> errorFlusher, LSPTypechecker::SlowPathMode mode) {
+LSPTypechecker::SlowPathResult LSPTypechecker::runSlowPath(LSPFileUpdates updates, WorkerPool &workers,
+                                                           shared_ptr<core::ErrorFlusher> errorFlusher,
+                                                           LSPTypechecker::SlowPathMode mode) {
     ENFORCE(this_thread::get_id() == typecheckerThreadId,
             "runSlowPath can only be called from the typechecker thread.");
+
+    SlowPathResult result;
 
     bool cancelable = mode == SlowPathMode::Cancelable;
 
@@ -480,7 +486,7 @@ bool LSPTypechecker::runSlowPath(LSPFileUpdates updates, WorkerPool &workers,
     auto &epochManager = *finalGS->epochManager;
     // Note: Commits can only be canceled if this edit is cancelable, LSP is running across multiple threads, and the
     // cancelation feature is enabled.
-    const bool committed = epochManager.tryCommitEpoch(*finalGS, epoch, cancelable, preemptManager, [&]() -> void {
+    result.committed = epochManager.tryCommitEpoch(*finalGS, epoch, cancelable, preemptManager, [&]() -> void {
         UnorderedSet<int> updatedFiles;
         vector<ast::ParsedFile> indexedCopies;
 
@@ -499,6 +505,16 @@ bool LSPTypechecker::runSlowPath(LSPFileUpdates updates, WorkerPool &workers,
                 }
                 updates.updatedFinalGSFileIndexes.push_back(move(parsedFile));
             }
+        }
+
+        // When this slow path is called from initialization, we are expected to pass out a copy of the GlobalState that
+        // has been populated right after indexing.
+        if (mode == SlowPathMode::Init) {
+            result.indexedGS = finalGS->deepCopy();
+
+            // We need to clear this out to ensure that the queue pinned to this thread doesn't accidentally make its
+            // way back to the indexer.
+            result.indexedGS->errorQueue = nullptr;
         }
 
         // Before making preemption or cancelation possible, pre-commit the changes from this slow path so that
@@ -608,7 +624,7 @@ bool LSPTypechecker::runSlowPath(LSPFileUpdates updates, WorkerPool &workers,
     // Note: `gs` now holds the value of `finalGS`.
     gs->lspQuery = core::lsp::Query::noQuery();
 
-    if (committed) {
+    if (result.committed) {
         prodCategoryCounterInc("lsp.updates", "slowpath");
         timeit.setTag("canceled", "false");
         // No need to keep around cancelation state!
@@ -622,7 +638,7 @@ bool LSPTypechecker::runSlowPath(LSPFileUpdates updates, WorkerPool &workers,
         ENFORCE(cancelable);
         logger->debug("[Typechecker] Typecheck run for epoch {} was canceled.", updates.epoch);
     }
-    return committed;
+    return result;
 }
 
 void LSPTypechecker::commitFileUpdates(LSPFileUpdates &updates, bool couldBeCanceled) {

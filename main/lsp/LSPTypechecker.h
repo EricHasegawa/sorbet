@@ -116,10 +116,15 @@ class LSPTypechecker final {
         Cancelable,
     };
 
+    struct SlowPathResult {
+        bool committed = false;
+        std::unique_ptr<core::GlobalState> indexedGS = nullptr;
+    };
+
     /** Conservatively reruns entire pipeline without caching any trees. Returns 'true' if committed, 'false' if
      * canceled. */
-    bool runSlowPath(LSPFileUpdates updates, WorkerPool &workers, std::shared_ptr<core::ErrorFlusher> errorFlusher,
-                     SlowPathMode mode);
+    SlowPathResult runSlowPath(LSPFileUpdates updates, WorkerPool &workers,
+                               std::shared_ptr<core::ErrorFlusher> errorFlusher, SlowPathMode mode);
 
     /** Runs incremental typechecking on the provided updates. Returns the final list of files typechecked. */
     std::vector<core::FileRef> runFastPath(LSPFileUpdates &updates, WorkerPool &workers,
