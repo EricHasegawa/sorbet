@@ -62,6 +62,10 @@ public:
 class LSPTypechecker final {
     /** Contains the ID of the thread responsible for typechecking. */
     std::thread::id typecheckerThreadId;
+
+    /** All known files in the workspace */
+    TrackedFiles workspaceFiles;
+
     /**
      * GlobalState used for typechecking. It is replaced during indexing on the slow path, and is always replaced with
      * a GlobalState that derives from the one created during LSP initialization. This derivation is guaranteed by

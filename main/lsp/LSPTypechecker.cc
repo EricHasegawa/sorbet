@@ -133,16 +133,14 @@ void LSPTypechecker::initialize(TaskQueue &queue, std::unique_ptr<core::GlobalSt
 
         Timer timeit(config->logger, "initial_index");
         ShowOperation op(*config, ShowOperation::Kind::Indexing);
-        vector<core::FileRef> inputFiles;
         unique_ptr<const OwnedKeyValueStore> ownedKvstore = cache::ownIfUnchanged(*initialGS, move(kvstore));
         {
             Timer timeit(config->logger, "reIndexFromFileSystem");
-            inputFiles = pipeline::reserveFiles(initialGS, config->opts.inputFileNames);
+            this->workspaceFiles = TrackedFiles{pipeline::reserveFiles(initialGS, config->opts.inputFileNames)};
             this->indexed.resize(initialGS->filesUsed());
 
             auto asts = hashing::Hashing::indexAndComputeFileHashes(*initialGS, config->opts, *config->logger,
-                                                                    absl::Span<core::FileRef>(inputFiles), workers,
-                                                                    ownedKvstore);
+                                                                    this->workspaceFiles.span(), workers, ownedKvstore);
             // asts are in fref order, but we (currently) don't index and compute file hashes for payload files, so
             // vector index != FileRef ID. Fix that by slotting them into `indexed`.
             for (auto &ast : asts) {
@@ -684,6 +682,15 @@ void LSPTypechecker::commitFileUpdates(LSPFileUpdates &updates, bool couldBeCanc
             cancellationUndoState->recordEvictedState(move(indexed[id]));
         }
         indexed[id] = move(ast);
+    }
+
+    // Updates with new files are required to update the workspaceFiles set.
+    if (updates.hasNewFiles) {
+        std::vector<core::FileRef> tracked(updates.updatedFileIndexes.size(), core::FileRef{});
+        for (auto &ast : updates.updatedFileIndexes) {
+            tracked.emplace_back(ast.file);
+        }
+        this->workspaceFiles.track(tracked);
     }
 
     for (auto &ast : updates.updatedFinalGSFileIndexes) {
