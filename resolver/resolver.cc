@@ -1334,7 +1334,9 @@ private:
 
     void walkUnresolvedConstantLit(core::Context ctx, ast::ExpressionPtr &tree) {
         if (auto c = ast::cast_tree<ast::UnresolvedConstantLit>(tree)) {
-            walkUnresolvedConstantLit(ctx, c->scope());
+            if (c->hasScope()) {
+                walkUnresolvedConstantLit(ctx, c->scope());
+            }
             auto loc = c->loc;
             auto out = ast::make_expression<ast::ConstantLit>(loc, core::Symbols::noSymbol(),
                                                               tree.toUnique<ast::UnresolvedConstantLit>());
