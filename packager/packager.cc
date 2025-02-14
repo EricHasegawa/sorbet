@@ -540,8 +540,8 @@ ast::ExpressionPtr prependName(ast::ExpressionPtr scope) {
     while (auto constLit = lastConstLit->scopeAs<ast::UnresolvedConstantLit>()) {
         lastConstLit = constLit;
     }
-    lastConstLit->scope =
-        ast::MK::Constant(lastConstLit->scope.loc().copyWithZeroLength(), core::Symbols::PackageSpecRegistry());
+    lastConstLit->scope_ =
+        ast::MK::Constant(lastConstLit->scope_.loc().copyWithZeroLength(), core::Symbols::PackageSpecRegistry());
     return scope;
 }
 
@@ -560,8 +560,8 @@ ast::ExpressionPtr prependRoot(ast::ExpressionPtr scope) {
     while (auto constLit = lastConstLit->scopeAs<ast::UnresolvedConstantLit>()) {
         lastConstLit = constLit;
     }
-    auto loc = lastConstLit->scope.loc();
-    lastConstLit->scope = ast::MK::Constant(loc, core::Symbols::root());
+    auto loc = lastConstLit->scope_.loc();
+    lastConstLit->scope_ = ast::MK::Constant(loc, core::Symbols::root());
     return scope;
 }
 
@@ -579,7 +579,7 @@ bool recursiveVerifyConstant(core::Context ctx, core::NameRef fun, const ast::Ex
         return false;
     }
 
-    return recursiveVerifyConstant(ctx, fun, root, target->scope);
+    return recursiveVerifyConstant(ctx, fun, root, target->scope_);
 }
 
 const ast::UnresolvedConstantLit *verifyConstant(core::Context ctx, core::NameRef fun, const ast::ExpressionPtr &expr) {
@@ -591,7 +591,7 @@ const ast::UnresolvedConstantLit *verifyConstant(core::Context ctx, core::NameRe
         return nullptr;
     }
 
-    if (recursiveVerifyConstant(ctx, fun, expr, target->scope)) {
+    if (recursiveVerifyConstant(ctx, fun, expr, target->scope_)) {
         return target;
     }
 

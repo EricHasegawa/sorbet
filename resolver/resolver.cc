@@ -1309,7 +1309,7 @@ private:
                 return;
             }
             ENFORCE(sym.exists() || !cnst->original->hasScope() ||
-                    ast::isa_tree<ast::ConstantLit>(cnst->original->scope));
+                    ast::isa_tree<ast::ConstantLit>(cnst->original->scope_));
             if (isSuperclass && sym == core::Symbols::todo()) {
                 // This is the case where the superclass is empty, for example: `class A; end`
                 return;
@@ -1334,7 +1334,7 @@ private:
 
     void walkUnresolvedConstantLit(core::Context ctx, ast::ExpressionPtr &tree) {
         if (auto c = ast::cast_tree<ast::UnresolvedConstantLit>(tree)) {
-            walkUnresolvedConstantLit(ctx, c->scope);
+            walkUnresolvedConstantLit(ctx, c->scope_);
             auto loc = c->loc;
             auto out = ast::make_expression<ast::ConstantLit>(loc, core::Symbols::noSymbol(),
                                                               tree.toUnique<ast::UnresolvedConstantLit>());
