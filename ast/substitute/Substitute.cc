@@ -22,7 +22,7 @@ private:
         }
 
         if (constLit->hasScope()) {
-            substClassName(ctx, constLit->scope_);
+            substClassName(ctx, constLit->scope());
         }
 
         constLit->cnst = subst.substituteSymbolName(constLit->cnst);
@@ -161,7 +161,7 @@ public:
         auto &original = cast_tree_nonnull<UnresolvedConstantLit>(tree);
         original.cnst = subst.substituteSymbolName(original.cnst);
         if (original.hasScope()) {
-            substClassName(ctx, original.scope_);
+            substClassName(ctx, original.scope());
         }
     }
 
