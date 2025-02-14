@@ -21,7 +21,10 @@ private:
             return;
         }
 
-        substClassName(ctx, constLit->scope);
+        if (constLit->hasScope()) {
+            substClassName(ctx, constLit->scope);
+        }
+
         constLit->cnst = subst.substituteSymbolName(constLit->cnst);
     }
 
@@ -157,7 +160,9 @@ public:
     void postTransformUnresolvedConstantLit(core::MutableContext ctx, ExpressionPtr &tree) {
         auto &original = cast_tree_nonnull<UnresolvedConstantLit>(tree);
         original.cnst = subst.substituteSymbolName(original.cnst);
-        substClassName(ctx, original.scope);
+        if (original.hasScope()) {
+            substClassName(ctx, original.scope);
+        }
     }
 
     void postTransformRuntimeMethodDefinition(core::MutableContext ctx, ExpressionPtr &original) {
