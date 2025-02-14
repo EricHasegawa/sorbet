@@ -1117,6 +1117,7 @@ struct PackageSpecBodyWalk {
                 auto &posArg = send.getPosArg(0);
                 prependName(posArg);
 
+                target = ast::cast_tree<ast::UnresolvedConstantLit>(posArg);
                 info.importedPackageNames.emplace_back(getPackageName(ctx, target), method2ImportType(send));
             }
         }
@@ -1158,6 +1159,8 @@ struct PackageSpecBodyWalk {
                     auto &posArg = send.getPosArg(0);
                     posArg = move(target->recv);
                     prependName(posArg);
+
+                    recv = ast::cast_tree<ast::UnresolvedConstantLit>(posArg);
                     info.visibleTo_.emplace_back(getPackageName(ctx, recv), core::packages::VisibleToType::Wildcard);
                 } else {
                     if (auto e = ctx.beginError(target->loc, core::errors::Packager::InvalidConfiguration)) {
@@ -1170,6 +1173,7 @@ struct PackageSpecBodyWalk {
                 auto &posArg = send.getPosArg(0);
                 prependName(posArg);
 
+                target = ast::cast_tree<ast::UnresolvedConstantLit>(posArg);
                 info.visibleTo_.emplace_back(getPackageName(ctx, target), core::packages::VisibleToType::Normal);
             }
         }
@@ -1448,10 +1452,13 @@ unique_ptr<PackageInfoImpl> definePackage(const core::GlobalState &gs, ast::Pars
             continue;
         }
 
-        auto nameTree = ast::cast_tree<ast::UnresolvedConstantLit>(packageSpecClass->name);
-        if (!validatePackageName(ctx, nameTree)) {
-            reportedError = true;
-            continue;
+        {
+            // We can't reuse this below, because `prependName` might mutate `packageSpecClass->name`.
+            auto nameTree = ast::cast_tree<ast::UnresolvedConstantLit>(packageSpecClass->name);
+            if (!validatePackageName(ctx, nameTree)) {
+                reportedError = true;
+                continue;
+            }
         }
 
         // ---- Mutates the tree ----
@@ -1465,6 +1472,7 @@ unique_ptr<PackageInfoImpl> definePackage(const core::GlobalState &gs, ast::Pars
         // Other than being able to say "we don't mutate the trees in packager" there's not much
         // value in going that far (even namer mutates the trees; the packager fills a similar role).
         prependName(packageSpecClass->name);
+        auto nameTree = ast::cast_tree<ast::UnresolvedConstantLit>(packageSpecClass->name);
 
         // Pre-resolve the super class. This makes it easier to detect that this is a package
         // spec-related class def in later passes without having to recursively walk up the constant
