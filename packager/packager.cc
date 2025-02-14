@@ -612,6 +612,10 @@ const ast::UnresolvedConstantLit *verifyConstant(core::Context ctx, core::NameRe
         return nullptr;
     }
 
+    if (!target->hasScope()) {
+        return target;
+    }
+
     if (recursiveVerifyConstant(ctx, fun, expr, target->scope())) {
         return target;
     }
