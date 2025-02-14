@@ -343,6 +343,7 @@ void appendFilesInDir(string_view basePath, const string &path, const sorbet::Un
                 }
 
                 while ((entry = readdir(dir)) != nullptr) {
+                    // TODO(jez) This logic should also apply to places where we call isFileIgnored
                     const auto namelen = strlen(entry->d_name);
                     string_view nameview{entry->d_name, namelen};
                     if (entry->d_type == DT_DIR) {
